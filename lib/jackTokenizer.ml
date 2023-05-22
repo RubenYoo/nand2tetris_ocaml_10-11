@@ -98,7 +98,7 @@ let advance (t: tokenizer) =
         skip_multi_line_comment ()
       else
         process_token c next_char
-    | '{' | '}' | '(' | ')' | '[' | ']' | '.' | ',' | ';' | '+' | '-' | '*' | '/' | '&' | '|' | '<' | '>'
+    | '{' | '}' | '(' | ')' | '[' | ']' | '.' | ',' | ';' | '+' | '-' | '*' | '&' | '|' | '<' | '>'
     | '=' | '~' ->
       process_token c ' '  (* Found a token *)
     | _ ->
@@ -139,7 +139,18 @@ let advance (t: tokenizer) =
     t.has_more_token <- false
 ;;
 
-  
+let symbol (t: tokenizer) =
+  String.get t.current_token 0;;
+
+let identifier (t: tokenizer) =
+  t.current_token;;
+
+let int_val (t:tokenizer) =
+  int_of_string t.current_token;;
+
+let string_val (t:tokenizer) =
+  t.current_token;;
+
 let constructor (file_path:string) = 
   let open_file = open_in file_path in
   let t = {file = open_file; has_more_token = true; current_token = ""} in
