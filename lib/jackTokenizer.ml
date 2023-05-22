@@ -6,7 +6,7 @@ type tokenizer = {
 
 type token = KEYWORD | SYMBOL | IDENTIFIER | INT_CONST | STRING_CONST | PASS;;
 type key = CLASS | METHOD | FUNCTION | CONSTRUCTOR | INT | BOOLEAN | CHAR | VOID | VAR | STATIC | FIELD |
-            LET | DO | IF | ELSE | WHILE | RETURN | TRUE | FALSE | NULL | THIS;;
+            LET | DO | IF | ELSE | WHILE | RETURN | TRUE | FALSE | NULL | THIS | PASS;;
 
 
 let token_type (current:string) =
@@ -53,16 +53,92 @@ let token_type (current:string) =
   | Failure _ -> PASS
   ;;
 
+let keyword (current:string) = 
+  try
+    match current with
+    | "class" -> CLASS
+    | "constructor" -> CONSTRUCTOR
+    | "function" -> FUNCTION
+    | "method" -> METHOD
+    | "field" -> FIELD
+    | "static" -> STATIC
+    | "var"  -> VAR
+    | "int" -> INT
+    | "char" -> CHAR
+    | "boolean" -> BOOLEAN
+    | "void" -> VOID
+    | "true" -> TRUE
+    | "false" -> FALSE
+    | "null" -> NULL
+    | "this" -> THIS
+    | "let" -> LET
+    | "do" -> DO
+    | "if" -> IF
+    | "else" -> ELSE
+    | "while" -> WHILE
+    | "return" -> RETURN
+    | _ -> failwith "this keyword is not supported"
+  with
+  | Failure _ -> PASS
+;;
+
 
 let has_more_tokens (t:tokenizer) = t.has_more_token;;
 
-let advance (t:tokenizer) = 
+let advance (t: tokenizer) =
+  let rec read_token () =
+    let c = input_char t.file in
+    match c with
+    | ' ' | '\t' -> read_token ()  (* Skip whitespace characters *)
+    | '/' ->
+      let next_char = input_char t.file in
+      if next_char = '/' then  (* Single-line comment, skip the rest of the line *)
+        skip_rest_of_line ()
+      else if next_char = '*' then  (* Multi-line comment, skip until the closing */ *)
+        skip_multi_line_comment ()
+      else
+        process_token c next_char
+    | '{' | '}' | '(' | ')' | '[' | ']' | '.' | ',' | ';' | '+' | '-' | '*' | '/' | '&' | '|' | '<' | '>'
+    | '=' | '~' ->
+      process_token c ' '  (* Found a token *)
+    | _ ->
+      process_token c ' '  (* Continue building the current token *)
+  and skip_rest_of_line () =
+    let rec read_next_char () =
+      let c = input_char t.file in
+      if c = '\n' then
+        read_token ()  (* Start processing the next token *)
+      else
+        read_next_char ()
+    in
+    read_next_char ()
+  and skip_multi_line_comment () =
+    let rec read_next_char () =
+      let c = input_char t.file in
+      if c = '*' then
+        match input_char t.file with
+        | '/' -> read_token ()  (* Start processing the next token *)
+        | _ -> read_next_char ()
+      else
+        read_next_char ()
+    in
+    read_next_char ()
+  and process_token c next_char =
+    if t.current_token = "" then  (* Start of a new token *)
+      t.current_token <- String.make 1 c
+    else  (* Continue adding to the current token *)
+      t.current_token <- t.current_token ^ (String.make 1 c);
+    if next_char <> ' ' then
+      t.current_token <- t.current_token ^ (String.make 1 next_char)
+  in
   try
-    if has_more_tokens t then
-      t.current_token <- input_line t.file;
-  with End_of_file ->
+    read_token ()  (* Start reading the file character by character until a token is found *)
+  with
+  | End_of_file ->
     close_in t.file;
-    t.has_more_token <- false;;
+    t.has_more_token <- false
+;;
+
   
 let constructor (file_path:string) = 
   let open_file = open_in file_path in
