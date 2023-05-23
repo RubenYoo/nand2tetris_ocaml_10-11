@@ -62,59 +62,72 @@ let keyword (current:string) =
   | Failure _ -> PASS
 ;;
 
+let is_terminal (tok: string) =
+  match tok with
+    | "{" | "}" | "(" | ")" | "[" | "]" | "." | "," | ";" | "+" | "-" | "*" | "/" | "&" | "|" | "<" | ">"
+    | "=" | "~" -> true
+    | _ -> false;;
 
 let has_more_tokens (t:tokenizer) = t.has_more_token;;
 
 let advance (t:tokenizer) =
-  print_endline "--";
-  t.current_token <- "";
-  let rec read_char () =
-    let current = String.make 1 (input_char t.file) in
-    print_string current;
-    if current = "/" then
-      handle_comment ()
-    else if current = " " || current = "\t" || current = "\r" || current = "\n" then
-      read_char ()
-    else
-      handle_token current
-  and handle_comment () =
-    let next_char = String.make 1 (input_char t.file) in
-    match next_char with
-    | "/" -> consume_line_comment ()
-    | "*" -> consume_block_comment ()
-    | _ -> handle_token "/"
-  and consume_line_comment () =
-    let rec read_line () =
-      let c = input_char t.file in
-      match c with
-      | '\n' -> read_char ()
-      | _ -> read_line ()
+  try
+    (*print_endline "--";*)
+    t.current_token <- "";
+    let rec read_char () =
+      let current = String.make 1 (input_char t.file) in
+      (*print_string current;*)
+      if current = "/" then
+        handle_comment ()
+      else if current = " " || current = "\n" || current = "\r" || current = "\t" then
+        read_char ()
+      else
+        handle_token current
+    and handle_comment () =
+      let next_char = String.make 1 (input_char t.file) in
+      match next_char with
+      | "/" -> consume_line_comment ()
+      | "*" -> consume_block_comment ()
+      | _ -> handle_token "/"
+    and consume_line_comment () =
+      let rec read_line () =
+        let c = input_char t.file in
+        match c with
+        | '\n' -> read_char ()
+        | _ -> read_line ()
+      in
+      read_line ()
+    and consume_block_comment () =
+      let rec read_block () =
+        let c = input_char t.file in
+        match c with
+        | '*' ->
+          let next_char = input_char t.file in
+          begin
+            match next_char with
+            | '/' -> read_char ()
+            | _ -> read_block ()
+          end
+        | _ -> read_block ()
+      in
+      read_block ()
+    and handle_token cur =
+      t.current_token <- t.current_token ^ cur;
+      let next_char = String.make 1 (input_char t.file) in
+      seek_in t.file (pos_in t.file - 1);
+  
+      (*let curr_tok = token_type t.current_token in
+      let next_tok = token_type (t.current_token ^ next_char) in
+      if curr_tok == next_tok then
+        read_char()*)
+    
+      if next_char <> " " && not (is_terminal t.current_token) && not (is_terminal next_char) then
+        read_char()
     in
-    read_line ()
-  and consume_block_comment () =
-    let rec read_block () =
-      let c = input_char t.file in
-      match c with
-      | '*' ->
-        let next_char = input_char t.file in
-        begin
-          match next_char with
-          | '/' -> read_char ()
-          | _ -> read_block ()
-        end
-      | _ -> read_block ()
-    in
-    read_block ()
-  and handle_token cur =
-    t.current_token <- t.current_token ^ cur;
-    let next_char = String.make 1 (input_char t.file) in
-    let curr_tok = token_type t.current_token in
-    let next_tok = token_type (t.current_token ^ next_char) in
-    seek_in t.file (pos_in t.file - 1);
-    if curr_tok == next_tok then
-      read_char()
-  in
-  read_char ();;
+    read_char ()
+with End_of_file ->
+  close_in t.file;
+  t.has_more_token <- false;;
 
 let symbol (t: tokenizer) =
   String.get t.current_token 0;;
