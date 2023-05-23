@@ -11,7 +11,7 @@ type key = CLASS | METHOD | FUNCTION | CONSTRUCTOR | INT | BOOLEAN | CHAR | VOID
 
 
 let token_type (current: string) =
-  let is_valid_string = Str.string_match (Str.regexp "[\"][^\"\n]*[\"]") current 0 in
+  let is_valid_string = Str.string_match (Str.regexp  "^\"[^\"\n]*\"$") current 0 in
   let is_valid_identifier = Str.string_match (Str.regexp "[a-zA-Z_][a-zA-Z0-9_]*") current 0 in
   let is_valid_int = Str.string_match (Str.regexp "^(?:0|[1-9]\\d{0,4}|327[0-6][0-7])$") current 0 in
   try
@@ -75,20 +75,22 @@ let advance (t:tokenizer) =
     (*print_endline "--";*)
     t.current_token <- "";
     let rec read_char () =
-      let current = String.make 1 (input_char t.file) in
+      let current = (input_char t.file) in
       (*print_string current;*)
-      if current = "/" then
+      if current = '/' then
         handle_comment ()
-      else if current = " " || current = "\n" || current = "\r" || current = "\t" then
+      else if current = ' ' || int_of_char current  = 10 || int_of_char current = 13 || current = '\t' then
         read_char ()
       else
-        handle_token current
+        handle_token current 
     and handle_comment () =
+      
       let next_char = String.make 1 (input_char t.file) in
+      seek_in t.file (pos_in t.file - 1);
       match next_char with
       | "/" -> consume_line_comment ()
       | "*" -> consume_block_comment ()
-      | _ -> handle_token "/"
+      | _ -> handle_token '/' 
     and consume_line_comment () =
       let rec read_line () =
         let c = input_char t.file in
@@ -99,23 +101,23 @@ let advance (t:tokenizer) =
       read_line ()
     and consume_block_comment () =
       let rec read_block () =
-        let c = input_char t.file in
+        let c = String.make 1 (input_char t.file) in
         match c with
-        | '*' ->
-          let next_char = input_char t.file in
+        | "*" ->
+          let next_char = String.make 1 (input_char t.file) in
           begin
             match next_char with
-            | '/' -> read_char ()
+            | "/" -> read_char ()
             | _ -> read_block ()
           end
-        | _ -> read_block ()
+        | _ -> read_block () 
       in
       read_block ()
     and handle_token cur =
-      t.current_token <- t.current_token ^ cur;
+      t.current_token <- t.current_token ^  String.make 1  cur;
       let next_char = String.make 1 (input_char t.file) in
       seek_in t.file (pos_in t.file - 1);
-  
+
       (*let curr_tok = token_type t.current_token in
       let next_tok = token_type (t.current_token ^ next_char) in
       if curr_tok == next_tok then
