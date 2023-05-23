@@ -70,19 +70,61 @@ let is_terminal (tok: string) =
 
 let has_more_tokens (t:tokenizer) = t.has_more_token;;
 
+
+let rec do_while t condition =
+  t.current_token <- "\"";
+  if not(condition) then begin
+    let next_char = input_char t.file in
+    t.current_token <- t.current_token ^ (String.make 1 next_char);
+    do_while t (next_char = '"')
+  end
+
+
+let rec do_while_word t condition =
+  t.current_token <- "";
+  if not(condition) then begin
+    let next_char = input_char t.file in
+    t.current_token <- t.current_token ^ (String.make 1 next_char);
+    do_while_word t (next_char <> ' ')
+  end
+
+  
+let rec read_next_word channel word t =
+  let next_char = input_char channel in
+  if  is_terminal (String.make 1 next_char) then
+    (seek_in t.file (pos_in t.file - 1));
+  if  next_char = ' ' || is_terminal (String.make 1 next_char)  then
+    
+
+    if String.length word > 0 then
+      word
+    else
+      read_next_word channel "" t
+  else
+    read_next_word channel (word ^ String.make 1 next_char) t
+
+
+let is_alphabetic_char c =
+  let code = Char.code c in
+  code >= Char.code 'a' && code <= Char.code 'z' || code >= Char.code 'A' && code <= Char.code 'Z'
+
 let advance (t:tokenizer) =
   try
     (*print_endline "--";*)
     t.current_token <- "";
     let rec read_char () =
-      let current = (input_char t.file) in
+      let current =(input_char t.file) in
       (*print_string current;*)
       if current = '/' then
         handle_comment ()
       else if current = ' ' || int_of_char current  = 10 || int_of_char current = 13 || current = '\t' then
         read_char ()
+      else if current = '"' then
+        do_while t (current = '"')
+
+        
       else
-        handle_token current 
+        handle_token (String.make 1 current)
     and handle_comment () =
       
       let next_char = String.make 1 (input_char t.file) in
@@ -90,7 +132,7 @@ let advance (t:tokenizer) =
       match next_char with
       | "/" -> consume_line_comment ()
       | "*" -> consume_block_comment ()
-      | _ -> handle_token '/' 
+      | _ -> handle_token "/"
     and consume_line_comment () =
       let rec read_line () =
         let c = input_char t.file in
@@ -114,7 +156,11 @@ let advance (t:tokenizer) =
       in
       read_block ()
     and handle_token cur =
-      t.current_token <- t.current_token ^  String.make 1  cur;
+      if String.length cur = 1    &&  is_alphabetic_char (String.get cur 0) then
+        let next_word_opt = read_next_word t.file cur t in
+        print_endline next_word_opt;
+      else
+        t.current_token <- t.current_token ^ cur;
       let next_char = String.make 1 (input_char t.file) in
       seek_in t.file (pos_in t.file - 1);
 
