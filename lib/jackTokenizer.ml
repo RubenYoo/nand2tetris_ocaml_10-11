@@ -1,3 +1,4 @@
+
 type tokenizer = {
   mutable file : in_channel;
   mutable has_more_token : bool;
@@ -9,49 +10,28 @@ type key = CLASS | METHOD | FUNCTION | CONSTRUCTOR | INT | BOOLEAN | CHAR | VOID
             LET | DO | IF | ELSE | WHILE | RETURN | TRUE | FALSE | NULL | THIS | PASS;;
 
 
-let token_type (current:string) =
+let token_type (current: string) =
+  let is_valid_string = Str.string_match (Str.regexp "[\"][^\"\n]*[\"]") current 0 in
+  let is_valid_identifier = Str.string_match (Str.regexp "[a-zA-Z_][a-zA-Z0-9_]*") current 0 in
+  let is_valid_int = Str.string_match (Str.regexp "^(?:0|[1-9]\\d{0,4}|327[0-6][0-7])$") current 0 in
   try
     match current with
     | "class" | "constructor" | "function" | "method" | "field" | "static" | "var" | "int" | "char" | "boolean"
     | "void" | "true" | "false" | "null" | "this" | "let" | "do" | "if" | "else" | "while" | "return" -> KEYWORD
     | "{" | "}" | "(" | ")" | "[" | "]" | "." | "," | ";" | "+" | "-" | "*" | "/" | "&" | "|" | "<" | ">"
     | "=" | "~" -> SYMBOL
-    | _ ->
-      let length = String.length current in
-      let rec is_valid_string_char i =
-        if i >= length then
-          true
-        else
-          let c = String.get current i in
-          if c = '\"' || c = '\n' then
-            false
-          else
-            is_valid_string_char (i + 1)
-      in
-      if length > 1 && String.get current 0 = '\"' && String.get current (length - 1) = '\"' && is_valid_string_char 1 then
+    | _ -> 
+      if is_valid_string then
         STRING_CONST
-      else if length > 0 &&
-              let first_char = String.get current 0 in
-              (first_char >= 'a' && first_char <= 'z') || (first_char >= 'A' && first_char <= 'Z') || first_char = '_' &&
-              let rec is_valid_identifier_char i =
-                if i >= length then
-                  true
-                else
-                  let c = String.get current i in
-                  (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c = '_'
-              in
-              is_valid_identifier_char 1 then
+      else if is_valid_identifier then
         IDENTIFIER
+      else if is_valid_int then
+        INT_CONST
       else
-        let num = int_of_string current in
-        if num >= 0 && num <= 32767 then
-          INT_CONST
-        else
-          failwith "This token is not supported"
-
+        failwith "this token is not supported"
   with
   | Failure _ -> PASS
-  ;;
+;;
 
 let keyword (current:string) = 
   try
@@ -85,59 +65,56 @@ let keyword (current:string) =
 
 let has_more_tokens (t:tokenizer) = t.has_more_token;;
 
-let advance (t: tokenizer) =
-  let rec read_token () =
-    let c = input_char t.file in
-    match c with
-    | ' ' | '\t' -> read_token ()  (* Skip whitespace characters *)
-    | '/' ->
-      let next_char = input_char t.file in
-      if next_char = '/' then  (* Single-line comment, skip the rest of the line *)
-        skip_rest_of_line ()
-      else if next_char = '*' then  (* Multi-line comment, skip until the closing */ *)
-        skip_multi_line_comment ()
-      else
-        process_token c next_char
-    | '{' | '}' | '(' | ')' | '[' | ']' | '.' | ',' | ';' | '+' | '-' | '*' | '&' | '|' | '<' | '>'
-    | '=' | '~' ->
-      process_token c ' '  (* Found a token *)
-    | _ ->
-      process_token c ' '  (* Continue building the current token *)
-  and skip_rest_of_line () =
-    let rec read_next_char () =
+let advance (t:tokenizer) =
+  print_endline "--";
+  t.current_token <- "";
+  let rec read_char () =
+    let current = String.make 1 (input_char t.file) in
+    print_string current;
+    if current = "/" then
+      handle_comment ()
+    else if current = " " || current = "\t" || current = "\r" || current = "\n" then
+      read_char ()
+    else
+      handle_token current
+  and handle_comment () =
+    let next_char = String.make 1 (input_char t.file) in
+    match next_char with
+    | "/" -> consume_line_comment ()
+    | "*" -> consume_block_comment ()
+    | _ -> handle_token "/"
+  and consume_line_comment () =
+    let rec read_line () =
       let c = input_char t.file in
-      if c = '\n' then
-        read_token ()  (* Start processing the next token *)
-      else
-        read_next_char ()
+      match c with
+      | '\n' -> read_char ()
+      | _ -> read_line ()
     in
-    read_next_char ()
-  and skip_multi_line_comment () =
-    let rec read_next_char () =
+    read_line ()
+  and consume_block_comment () =
+    let rec read_block () =
       let c = input_char t.file in
-      if c = '*' then
-        match input_char t.file with
-        | '/' -> read_token ()  (* Start processing the next token *)
-        | _ -> read_next_char ()
-      else
-        read_next_char ()
+      match c with
+      | '*' ->
+        let next_char = input_char t.file in
+        begin
+          match next_char with
+          | '/' -> read_char ()
+          | _ -> read_block ()
+        end
+      | _ -> read_block ()
     in
-    read_next_char ()
-  and process_token c next_char =
-    if t.current_token = "" then  (* Start of a new token *)
-      t.current_token <- String.make 1 c
-    else  (* Continue adding to the current token *)
-      t.current_token <- t.current_token ^ (String.make 1 c);
-    if next_char <> ' ' then
-      t.current_token <- t.current_token ^ (String.make 1 next_char)
+    read_block ()
+  and handle_token cur =
+    t.current_token <- t.current_token ^ cur;
+    let next_char = String.make 1 (input_char t.file) in
+    let curr_tok = token_type t.current_token in
+    let next_tok = token_type (t.current_token ^ next_char) in
+    seek_in t.file (pos_in t.file - 1);
+    if curr_tok == next_tok then
+      read_char()
   in
-  try
-    read_token ()  (* Start reading the file character by character until a token is found *)
-  with
-  | End_of_file ->
-    close_in t.file;
-    t.has_more_token <- false
-;;
+  read_char ();;
 
 let symbol (t: tokenizer) =
   String.get t.current_token 0;;
@@ -154,7 +131,4 @@ let string_val (t:tokenizer) =
 let constructor (file_path:string) = 
   let open_file = open_in file_path in
   let t = {file = open_file; has_more_token = true; current_token = ""} in
-  advance t;
   t;;
-
-
