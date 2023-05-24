@@ -1,4 +1,3 @@
-
 type tokenizer = {
   mutable file : in_channel;
   mutable has_more_token : bool;
@@ -32,6 +31,7 @@ let token_type (current: string) =
   with
   | Failure _ -> PASS
 ;;
+
 
 let keyword (current:string) = 
   try
@@ -91,11 +91,9 @@ let rec do_while_word t condition =
   
 let rec read_next_word channel word t =
   let next_char = input_char channel in
-  if  is_terminal (String.make 1 next_char) then
+  if is_terminal (String.make 1 next_char) then
     (seek_in t.file (pos_in t.file - 1));
   if  next_char = ' ' || is_terminal (String.make 1 next_char)  then
-    
-
     if String.length word > 0 then
       word
     else
@@ -103,10 +101,67 @@ let rec read_next_word channel word t =
   else
     read_next_word channel (word ^ String.make 1 next_char) t
 
-
 let is_alphabetic_char c =
   let code = Char.code c in
   code >= Char.code 'a' && code <= Char.code 'z' || code >= Char.code 'A' && code <= Char.code 'Z'
+
+let split_by_spaces str =
+  String.split_on_char ' ' str
+
+let handle_word word  ft =
+  if ft = false  then
+    ([], false)
+  else
+    let my_list = [] in
+    if String.length word = 1 then
+      match word  with
+      | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"->
+        let my_list = word :: my_list in
+        (my_list, true)
+      | "{" | "}" | "(" | ")" | "[" | "]" | "." | "," | ";" | "+" | "-" | "*" | "/" | "&" | "|" | "<" | ">"| "=" | "~"  ->  
+        let my_list = word :: my_list in
+        (my_list, true)
+      | _ -> (my_list, true)
+    else
+      let start = String.sub word 0 2 in
+      if start = "//" || start = "/*" then 
+        (my_list, false)
+      else if start = "*/" then
+        (my_list, false)
+      else
+        let my_list = word :: my_list in
+        (my_list, true)
+  ;;
+  
+let remove_leading_spaces line =
+  let rec remove_leading_spaces_helper idx =
+    if idx < String.length line && (String.get line idx = ' ' ||  String.get line idx = '\t') then
+      remove_leading_spaces_helper (idx + 1)
+    else
+      String.sub line idx (String.length line - idx)
+  in
+  remove_leading_spaces_helper 0
+
+
+let advance_two (t: tokenizer) =
+  let current_line = input_line t.file in
+  let wordis = remove_leading_spaces current_line in
+  let words = Str.split (Str.regexp " ") wordis in
+  let ft = true in
+  let rec process_words includeBool = function
+    | [] -> ()
+    | current_str :: rest ->
+      let (listy, bb) = handle_word current_str includeBool  in
+      (* Do something with listy, booll, and includeBool *)
+      if bb = true  && listy <> [] then
+        print_endline(List.hd listy);
+      process_words bb rest
+  in
+
+  let initialBool = ft in  (* Set initial boolean value here *)
+  process_words initialBool words
+
+
 
 let advance (t:tokenizer) =
   try
