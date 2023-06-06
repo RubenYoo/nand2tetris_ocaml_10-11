@@ -1,4 +1,4 @@
-
+open Jack_compiler
 let my_read_file filename =
   let ic = open_in filename in
   let rec read_lines lines =
@@ -25,12 +25,12 @@ let main =
       if index > -1 then
         let destination_path = String.sub file 0 (index + 1) ^ "T.xml" in
 
-        let input_string = my_read_file(source_path ^ "/" ^ file) in
+        (*let input_string = my_read_file(source_path ^ "/" ^ file) in*)
         let write_file = open_out destination_path in
-        (*Tokenizer.tokenize input_string write_file;*)
+        CompilerEngine.compile (source_path ^ "/" ^ file);
         Out_channel.flush write_file;
-        let read_file = my_read_file destination_path in
-        let input_string_parse = my_read_file read_file in
+       (* let read_file = my_read_file destination_path in
+        let input_string_parse = my_read_file read_file in*)
         let destination_path_parse =  String.sub file 0 (index + 1) ^ ".vm" in
         let write_file_parse = open_out destination_path_parse in
         (*CodeParser.ParseClass (CodeGeneratorWriter.create (), input_string_parse, write_file_parse);*)
