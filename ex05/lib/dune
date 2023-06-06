@@ -1,0 +1,3 @@
+(library
+  (name jack_compiler)
+  (libraries batteries))
