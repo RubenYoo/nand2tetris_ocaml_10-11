@@ -1,9 +1,9 @@
 
 
 type symbol_kind =
-  | STATIC
-  | FIELD
-  | ARG
+  | STATIC 
+  | FIELD 
+  | ARG 
   | VAR
 
 type symbol = {

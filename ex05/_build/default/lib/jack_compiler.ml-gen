@@ -17,3 +17,6 @@ module Symbil = Jack_compiler__Symbil
 
 (** @canonical Jack_compiler.Symboltable *)
 module Symboltable = Jack_compiler__Symboltable
+
+(** @canonical Jack_compiler.Try *)
+module Try = Jack_compiler__Try

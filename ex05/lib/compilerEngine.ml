@@ -3,33 +3,57 @@ open JackTokenizer
 exception ArgumentError
 exception CompileError of string
 
-let write_element tag_name value outfile depth =
-  let indention = Batteries.String.repeat "  " depth in
-  Printf.fprintf outfile "%s" (indention ^ "<" ^ tag_name ^ "> " ^ value ^ " </" ^ tag_name ^ ">\n")
+type myclass = {
+  class_name: string;
+}
 
-let write_element_start tag_name outfile depth =
-  let indention = Batteries.String.repeat "  " depth in
-  Printf.fprintf outfile "%s" (indention ^ "<" ^ tag_name ^ ">\n")
+let create_myclass _class_name =
+  { class_name =  _class_name }
 
-let write_element_end tag_name outfile depth =
-  let indention = Batteries.String.repeat "  " depth in
-  Printf.fprintf outfile "%s" (indention ^ "</" ^ tag_name ^ ">\n")
+type symbol_kind =
+  | STATIC
+  | FIELD
+  | ARG
+  | VAR
+let write_element _tag_name value outfile depth =
+  let _indention = Batteries.String.repeat "  " depth in
+  Printf.fprintf outfile "%s" ((*indention ^ "<" ^ tag_name ^ "> "*)  "\n" ^ value (*" </" ^ tag_name ^ ">\n"*))
 
-let compile_identifier outfile depth tokens =
-  write_element "identifier" (List.hd tokens) outfile depth;
+let write_element_start _tag_name _outfile _depth =
+  print_endline("")
+  (*let indention = Batteries.String.repeat "  " depth in
+  Printf.fprintf outfile "%s" (indention ^ "<" ^ tag_name ^ ">\n")*)
+
+let write_element_end _tag_name _outfile _depth =
+  print_endline("")
+  (*let indention = Batteries.String.repeat "  " depth in
+    Printf.fprintf outfile "%s" (indention ^ "</" ^ tag_name ^ ">\n")*)
+ 
+
+let compile_identifier _outfile _depth tokens =
+  (*write_element "identifier" (List.hd tokens) outfile depth;*)
+  print_endline (List.hd tokens);
   List.tl tokens
 
-let compile_symbol outfile depth tokens =
-  let symbol = match List.hd tokens with
-    | "<" -> "&lt;"
-    | ">" -> "&gt;"
-    | "&" -> "&amp;"
-    | s -> s in
-  write_element "symbol" symbol outfile depth;
-  List.tl tokens
+let compile_symbol _outfile _depth _tokens =
+  let symbol = match List.hd _tokens with
+    | "+" -> "add\n"
+    | "-" -> "sub\n"
+    | "*" -> "call Math.multiply 2\n"
+    | "/" -> "call Math.divide 2\n"
+    | "&amp;" ->"and\n"
+    | "|" -> "or\n"
+    | "&lt;" ->"lt\n"
+    | "&gt;" ->"gt\n"
+    | "=" -> "eq\n"
+    | "~" -> "not\n"
+    | _ -> "" in
+  Printf.fprintf _outfile "%s" (symbol);
+   List.tl _tokens
 
-let compile_integer_const outfile depth tokens =
-  write_element "integerConstant" (List.hd tokens) outfile depth;
+let compile_integer_const outfile _depth tokens =
+  (*write_element "integerConstant" (List.hd tokens) outfile depth;*)
+  Printf.fprintf outfile  "%s" ("push constant " ^ List.hd tokens ^ "\n");
   List.tl tokens
 
 let sanitize_string str =
@@ -38,11 +62,32 @@ let sanitize_string str =
   else
     str
 
+
+let rec compile_string_const_rec outfile depth sanitized index =
+  if index < String.length sanitized then
+    let temp = int_of_char sanitized.[index] in
+    Printf.fprintf outfile "push constant %d\n" (String.length sanitized);
+    Printf.fprintf outfile "push constant %d\n" temp;
+    Printf.fprintf outfile "call String.appendChar 2\n";
+    compile_string_const_rec outfile depth sanitized (index + 1)
+  else
+    ()
+
 let compile_string_const outfile depth tokens =
   let sanitized = sanitize_string (List.hd tokens) in
-  write_element "stringConstant" sanitized outfile depth;
+  (*write_element "stringConstant" sanitized outfile depth;*)
+  Printf.fprintf outfile "push constant %d\n" (String.length sanitized);
+  compile_string_const_rec outfile depth sanitized 0;
   List.tl tokens
+  
+let deal_var vartype _name outfile = 
+  print_endline(vartype);
 
+  match vartype with
+  | "var" -> Printf.fprintf outfile "%s" "push local\n"
+  | "arg"  -> Printf.fprintf outfile "%s" "push argumen\n"
+  | "field" ->Printf.fprintf outfile "%s"  "push this\n"
+  | _ ->()
 let rec _compile outfile depth tokens =
   match JackTokenizer.token_type tokens with
     | KEYWORD ->
@@ -93,8 +138,9 @@ and compile_class_var_dec_or_subroutine_dec outfile depth tokens =
 
 and compile_class outfile depth tokens =
   write_element_start "class" outfile depth;
+  let _m = create_myclass (List.nth tokens 1) in
   let next_depth = depth + 1 in
-  write_element "keyword" "class" outfile next_depth; (* 'class' *)
+  (*write_element "keyword" "class" outfile next_depth; *)(* 'class' *)
   let rest = List.tl tokens
     |> _compile outfile next_depth (* className *)
     |> _compile outfile next_depth (* '{' *)
@@ -338,8 +384,10 @@ and compile_var_dec_repeat outfile depth tokens =
 
 and compile_var_dec outfile depth tokens =
   write_element_start "varDec" outfile depth;
+  let vartype = List.nth tokens 0 in 
   let next_depth = depth + 1 in
-  write_element "keyword" "var" outfile next_depth; (* 'var' *)
+  (*write_element "keyword" "var" outfile next_depth;*) (* 'var' *)
+  deal_var vartype  5555 outfile ;
   let rest = List.tl tokens
     |> _compile outfile next_depth (* type *)
     |> _compile outfile next_depth (* varName *)
@@ -348,8 +396,9 @@ and compile_var_dec outfile depth tokens =
   write_element_end "varDec" outfile depth;
   rest
 
-and compile_keyword_constant outfile depth tokens =
-  write_element "keyword" (List.hd tokens) outfile depth;
+
+and compile_keyword_constant _outfile _depth tokens =
+  (* write_element "keyword" (List.hd tokens) outfile depth;*)
   List.tl tokens
 
 and compile_type outfile depth tokens =
@@ -362,8 +411,18 @@ and compile_keyword outfile depth tokens =
       compile_class outfile depth tokens
     | "constructor" | "function" | "method" ->
       compile_subroutine_dec outfile depth tokens
-    | "true" | "false" | "null" | "this" ->
-      compile_keyword_constant outfile depth tokens
+    | "true" ->
+      Printf.fprintf outfile  "%s" ("push constant 0\nnot\n");
+      List.tl tokens
+      (*compile_keyword_constant outfile depth tokens*)
+    | "false" | "null"  ->
+      (*compile_keyword_constant outfile depth tokens*)
+      Printf.fprintf outfile  "%s" ("push constant 0\n");
+      List.tl tokens
+    |"this" ->
+      Printf.fprintf outfile   "%s" ("push pointer 0\n");
+      List.tl tokens
+      (*compile_keyword_constant outfile depth tokens*)
     | "void" | "int" | "char" | "boolean" ->
       compile_type outfile depth tokens
     | "var" ->
