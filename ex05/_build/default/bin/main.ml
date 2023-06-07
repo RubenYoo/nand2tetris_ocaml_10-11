@@ -29,8 +29,8 @@ let main =
         let write_file = open_out destination_path in
         CompilerEngine.compile (source_path ^ "/" ^ file);
         Out_channel.flush write_file;
-       (* let read_file = my_read_file destination_path in
-        let input_string_parse = my_read_file read_file in*)
+        let read_file = my_read_file destination_path in
+        let input_string_parse = my_read_file read_file in
         let destination_path_parse =  String.sub file 0 (index + 1) ^ ".vm" in
         let write_file_parse = open_out destination_path_parse in
         (*CodeParser.ParseClass (CodeGeneratorWriter.create (), input_string_parse, write_file_parse);*)
