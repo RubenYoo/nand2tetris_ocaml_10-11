@@ -1,0 +1,14 @@
+(executable
+ (name compiler)
+ (libraries core stdio base )
+(preprocess (pps ppx_jane)))
+
+(rule
+ (targets lexer.ml)
+ (deps lexer.mll)
+ (action (run ocamllex %{deps})))
+
+(rule
+ (targets parser.mli parser.ml)
+ (deps   parser.mly)
+ (action (run menhir  --explain  --infer %{deps})))
